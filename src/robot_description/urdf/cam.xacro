@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="common_materials.xacro"/>
+  <xacro:macro name="cam" params="parent_link x y z roll pitch yaw">
+  <link name="cam_link">
+      <visual>
+        <geometry>
+          <cylinder radius="0.0375" length="0.094"/>
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <material name="white"/>
+      </visual>
+    </link>
+
+    <joint name="cam_joint" type="fixed">
+      <parent link="${parent_link}"/>
+      <child link="cam_link"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+    </joint>
+  </xacro:macro>
+</robot>

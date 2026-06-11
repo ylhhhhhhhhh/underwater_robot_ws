@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<robot name="robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="common_materials.xacro"/>
+  <xacro:load_colors/>
+  <xacro:include filename="base_link.xacro"/>
+  <xacro:include filename="uGPS.xacro"/>
+  <xacro:include filename="imu.xacro"/>
+  <xacro:include filename="sonar.xacro"/>
+  <xacro:include filename="cam.xacro"/>
+
+  <xacro:ugps
+    child_link="base_link"
+    x="0.0" y="0.166" z="-0.104"
+    roll="0" pitch="0" yaw="0"/>
+  
+  <xacro:cam
+    parent_link="base_link"
+    x="0.11" y="-0.1875" z="0.1575"
+    roll="0" pitch="1.5708" yaw="0"/>
+  
+  <xacro:sonar
+    parent_link="base_link"
+    x="0.11" y="0.1875" z="0.15"
+    roll="0" pitch="0" yaw="0"/>
+  
+  <xacro:imu
+    parent_link="base_link"
+    x="0" y="0" z="0"
+    roll="0" pitch="0" yaw="0"/>
+
+</robot>

@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<robot name="my_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<!-- 主身体（黑色，根 link） -->
+<link name="base_link">
+  <visual>
+    <geometry>
+      <box size="0.45 0.30 0.18"/>
+    </geometry>
+    <origin xyz="0 0 -0.03" rpy="0 0 0"/>
+    <material name="black_body">
+      <color rgba="0.0 0.0 0.0 1.0"/>
+    </material>
+  </visual>
+  <visual>
+    <geometry>
+      <box size="0.45 0.01 0.06"/>
+    </geometry>
+    <origin xyz="0 -0.145 0.09" rpy="0 0 0"/>
+    <material name="black_body"/>
+  </visual>
+  <visual>
+    <geometry>
+      <box size="0.45 0.01 0.06"/>
+    </geometry>
+    <origin xyz="0 0.145 0.09" rpy="0 0 0"/>
+    <material name="black_body"/>
+  </visual>
+</link>
+
+<!-- ============================================== -->
+<!-- 红色方块 1  焊死在 base_link -->
+<link name="red_link_1">
+  <visual>
+    <geometry>
+      <box size="0.15 0.10 0.06"/>
+    </geometry>
+    <material name="red_part_1">
+      <color rgba="1.0 0.0 0.0 1.0"/>
+    </material>
+  </visual>
+</link>
+<joint name="joint_red_1" type="fixed">
+  <parent link="base_link"/>
+  <child link="red_link_1"/>
+  <origin xyz="0.15 0.09 0.09" rpy="0 0 0"/>
+</joint>
+
+<!-- ============================================== -->
+<!-- 红色方块 2  焊死在 base_link -->
+<link name="red_link_2">
+  <visual>
+    <geometry>
+      <box size="0.15 0.10 0.06"/>
+    </geometry>
+    <material name="red_part_2">
+      <color rgba="1.0 0.0 0.0 1.0"/>
+    </material>
+  </visual>
+</link>
+<joint name="joint_red_2" type="fixed">
+  <parent link="base_link"/>
+  <child link="red_link_2"/>
+  <origin xyz="0.15 -0.09 0.09" rpy="0 0 0"/>
+</joint>
+
+<!-- ============================================== -->
+<!-- 红色方块 3  焊死在 base_link -->
+<link name="red_link_3">
+  <visual>
+    <geometry>
+      <box size="0.15 0.10 0.06"/>
+    </geometry>
+    <material name="red_part_3">
+      <color rgba="1.0 0.0 0.0 1.0"/>
+    </material>
+  </visual>
+</link>
+<joint name="joint_red_3" type="fixed">
+  <parent link="base_link"/>
+  <child link="red_link_3"/>
+  <origin xyz="-0.15 0.09 0.09" rpy="0 0 0"/>
+</joint>
+
+<!-- ============================================== -->
+<!-- 红色方块 4  焊死在 base_link -->
+<link name="red_link_4">
+  <visual>
+    <geometry>
+      <box size="0.15 0.10 0.06"/>
+    </geometry>
+    <material name="red_part_4">
+      <color rgba="1.0 0.0 0.0 1.0"/>
+    </material>
+  </visual>
+</link>
+<joint name="joint_red_4" type="fixed">
+  <parent link="base_link"/>
+  <child link="red_link_4"/>
+  <origin xyz="-0.15 -0.09 0.09" rpy="0 0 0"/>
+</joint>
+
+</robot>

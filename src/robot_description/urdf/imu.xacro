@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_name">
+  <xacro:include filename="common_materials.xacro"/>
+  <xacro:macro name="imu" params="parent_link x y z roll pitch yaw">
+    <link name="imu_link">
+      <visual>
+        <geometry>
+          <box size="0.04 0.03 0.003"/>
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <material name="black"/>
+      </visual>
+    </link>
+    <joint name="imu_joint" type="fixed">
+      <parent link="${parent_link}"/>
+      <child link="imu_link"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+    </joint>
+  </xacro:macro>
+</robot>

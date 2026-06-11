@@ -1,0 +1,17 @@
+build/
+install/
+log/
+src/serial_ros2/build/
+src/serial_ros2/install/
+src/serial_ros2/log/
+.vscode/
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+*.log
+*.bag
+*.pcd
+*.png
+

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 我就加了这一行保护，解决重复报错！ -->
+  <xacro:macro name="load_colors">
+
+  <material name="blue">
+    <color rgba="0.2 0.3 0.8 1.0"/>
+  </material>
+  <material name="red">
+    <color rgba="0.8 0.2 0.2 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0.2 0.8 0.3 1.0"/>
+  </material>
+  <material name="gray">
+    <color rgba="0.6 0.6 0.6 1.0"/>
+  </material>
+  <material name="yellow">
+    <color rgba="0.9 0.9 0.2 1.0"/>
+  </material>
+  <material name="white">
+    <color rgba="1.0 1.0 1.0 1.0"/>
+  </material>
+  <material name="black">
+    <color rgba="0.05 0.05 0.05 1.0"/>
+  </material>
+
+  <!-- 我就加了这一行收尾 -->
+  </xacro:macro>
+
+</robot>

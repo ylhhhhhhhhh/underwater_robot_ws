@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="common_materials.xacro"/>
+  <xacro:macro name="ugps" params="child_link x y z roll pitch yaw">
+    <link name="ugps_link">
+      <visual>
+        <geometry>
+          <cylinder radius="0.016" length="0.1"/>
+        </geometry>
+        <origin xyz="0 0 -0.01" rpy="0 1.5708 0"/>
+        <material name="white"/>
+      </visual>
+      <visual>
+        <geometry>
+          <cylinder radius="0.008" length="0.02"/>
+        </geometry>
+        <origin xyz="0 0 0.05" rpy="0 1.5708 0"/>
+        <material name="white"/>
+      </visual>
+    </link>
+
+    <joint name="ugps_joint" type="fixed">
+      <parent link="ugps_link"/>
+      <child link="${child_link}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+    </joint>
+  </xacro:macro>
+</robot>
