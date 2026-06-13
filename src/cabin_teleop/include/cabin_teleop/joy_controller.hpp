@@ -19,7 +19,8 @@ class JoyController : public rclcpp::Node{
         // joystick param
         double joy_force[3];                  //The force input along the x, y, z axis
         double joy_moment[3];                 //The moment input around the x, y, axis
-        bool joy_switch_state;
+        int joy_switch_state;
+        bool pid_enable;
         double max_forward_thrust;
         double max_backward_thrust;
         double max_forward_thrust_ud;

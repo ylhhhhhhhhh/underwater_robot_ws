@@ -4,6 +4,7 @@ from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
 from cabin_interface.msg import Sonar
 import threading
+import math
 from ping360_sonar.sonar_interface import SonarInterface
 
 class Ping360DriverNode(Node):
@@ -88,15 +89,16 @@ class Ping360DriverNode(Node):
                 raw_msg = Sonar()
                 raw_msg.header.stamp = self.get_clock().now().to_msg()
                 raw_msg.header.frame_id = self.frame_id
-                raw_msg.angle = self.sonar.currentAngle()
+                raw_msg.angle = math.degrees(self.sonar.currentAngle())
                 raw_msg.sample_period = self.sonar.sample_period
                 raw_msg.num_samples = self.sonar.samples
                 raw_msg.range_min = 0.0
                 raw_msg.range_max = self.sonar.max_range
                 raw_msg.intensities = list(self.sonar.data)
                 self.pub_raw.publish(raw_msg)
+                self.get_logger().info(f"当前扫描角度: {raw_msg.angle:.2f} °")
             if scan_finished:
-                self.get_logger().info("本轮扇区/360°扫描完成")
+                self.get_logger().info("扫描一圈结束")
 
 def main(args=None):
     rclpy.init(args=args)

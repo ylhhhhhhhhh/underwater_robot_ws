@@ -13,7 +13,7 @@ def generate_launch_description():
                 {"connection_type": "serial"},
                 {"serial_port": "/dev/ttyUSB0"},
                 {"baudrate": 115200},
-                {"fallback_emulated": False},
+                {"fallback_emulated": True},
 
                 # 扫描参数
                 {"aperture_deg": 360.0},

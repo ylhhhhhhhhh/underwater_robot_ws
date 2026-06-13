@@ -63,12 +63,12 @@ public:
 
         double x = sqrt(2) / 2;
         MatrixXd T(6,6);
-        T << -x,  -x,  x,  x,  0,  0,   
-             -x,  x, -x,  x,  0,  0,   
-              0,  0,  0,  0,  -1,  -1,   
+        T << -x, -x, -x, -x,  0,  0,   
+             -x,  x,  x, -x,  0,  0,   
+              0,  0,  0,  0, -1, -1,   
               0,  0,  0,  0,  0,  0,   
               0,  0,  0,  0,  0,  0,   
-              1, -1,  -1, 1,  0,  0;   
+              1, -1,  1, -1,  0,  0;   
 
         allocator_ = std::make_shared<ThrusterAllocator>(T);
     }

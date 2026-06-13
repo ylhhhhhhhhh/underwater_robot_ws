@@ -25,7 +25,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            "ping360_sonar = ping360_sonar.ping360_sonar:main"
+            "ping360_sonar = ping360_sonar.ping360_sonar:main",
+            "ping360_2D = ping360_sonar.ping360_vision2D:main"
         ],
     },
 )

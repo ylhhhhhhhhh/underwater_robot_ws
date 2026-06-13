@@ -1,2 +1,4 @@
 std_msgs/Header header
-bool lock
+int8 lock
+bool imu_reset
+bool pid_enable
