@@ -8,6 +8,7 @@ def generate_launch_description():
     ahrs_driver=Node(
         package="fdilink_ahrs",
         executable="ahrs_driver_node",
+        namespace="red",
         parameters=[
             {
                 'if_debug_': False,

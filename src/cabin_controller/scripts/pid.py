@@ -30,6 +30,8 @@ class PIDController:
         self.last_time = 0.0
 
     def set_target(self, target):
+        # 目标航向角约束到0~360区间，防止外部传入超范围角度
+        target = target % 360.0
         self.target = target
 
     def reset(self):
@@ -47,7 +49,16 @@ class PIDController:
             dt = now - self.last_time
 
         dt = max(dt, 1e-6)
-        error = self.target - current
+        # 1. 当前角度先取模约束至0~360，避免传感器输出负数/超360
+        current_angle = current % 360.0
+        # 2. 原始线性误差
+        raw_error = self.target - current_angle
+        # 3. 将误差映射到 [-180, 180]，实现最短转向，不会绕360度大圈
+        error = raw_error
+        if error > 180.0:
+            error -= 360.0
+        elif error < -180.0:
+            error += 360.0
 
         if abs(error) < self.error_tolerance:
             self.reset()
@@ -55,7 +66,10 @@ class PIDController:
 
         p_term = self.kp * error
 
-        self.integral += error * dt
+        # 角度跳变时冻结积分，防止积分饱和炸输出
+        # 误差绝对值接近180度说明需要大掉头，此时停止积分累加
+        if abs(error) < 175.0:
+            self.integral += error * dt
         self.integral = max(min(self.integral, self.max_i), self.min_i)
         i_term = self.ki * self.integral
 
