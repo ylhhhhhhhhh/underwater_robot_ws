@@ -36,7 +36,7 @@ ament_target_dependencies(pwm_controller
   std_msgs
   cabin_interface
 )
-
+ament_python_install_package(${PROJECT_NAME})
 target_link_libraries(thruster_controller
   ${CERES_LIBRARIES}
   Eigen3::Eigen
@@ -52,9 +52,10 @@ install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
-# 安装 scripts 里的所有 Python 节点
-install(
-  PROGRAMS scripts/serial_to_mcu.py
+install(PROGRAMS 
+  cabin_controller/serial_to_mcu.py
+  cabin_controller/yaw_pid.py
+  cabin_controller/pid.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()

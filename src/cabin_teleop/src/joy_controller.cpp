@@ -105,7 +105,7 @@ void JoyController::JoyCallback(const sensor_msgs::msg::Joy msg){
         cmd.header.stamp = now;
         cmd.pid_enable = pid_enable;
         joy_cmd_pub->publish(cmd);
-        if(joy_switch_state){
+        if(pid_enable){
             RCLCPP_INFO(get_logger(), "pid start!!!");
         }
         else{

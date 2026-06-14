@@ -1,9 +1,15 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from cabin_interface.msg import ControlCmd, ControlMove
 from geometry_msgs.msg import Vector3
-from cabin_controller.scripts import pid
+import sys
+from pathlib import Path
 
+script_folder = Path(__file__).parent
+sys.path.insert(0, str(script_folder))
+
+import pid
 
 class Yaw_pid(Node):
     def __init__(self, name):
@@ -39,7 +45,7 @@ class Yaw_pid(Node):
             error_tolerance=3.0
         )
         self.move_pub = self.create_publisher(ControlMove, 'command/pid/move', 10)
-        self.pid_move = ControlMove()
+        self.cached_move = ControlMove()
 
         self.pid_enable = False
         self.yaw = 0.0
@@ -67,22 +73,18 @@ class Yaw_pid(Node):
         self.yaw = raw_yaw % 360.0
 
     def move_callback(self, msg):
-        if not self.pid_enable:
-            self.move_pub.publish(msg)
-            return
-        
-        delta_yaw = float(msg.moment[2]) * 0.5
-        self.target_yaw = (self.yaw + delta_yaw) % 360.0
-        self.yaw_pid.set_target(self.target_yaw)
+        self.cached_move = msg
+        if self.pid_enable:
+            delta_yaw = float(msg.moment.z) * 0.2
+            self.target_yaw = (self.target_yaw + delta_yaw) % 360.0
+            self.yaw_pid.set_target(self.target_yaw)
 
     def timer_callback(self):
+        out_msg = self.cached_move
         if self.pid_enable:
             yaw_torque = self.yaw_pid.compute(self.yaw)
-            self.pid_move.moment[2] = yaw_torque
-            self.move_pub.publish(self.pid_move)
-        else:
-            self.pid_move.moment[2] = 0.0
-            self.move_pub.publish(self.pid_move)
+            out_msg.moment.z = yaw_torque
+        self.move_pub.publish(out_msg)
 
 
 def main(args=None):

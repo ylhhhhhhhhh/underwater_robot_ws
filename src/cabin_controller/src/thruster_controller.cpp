@@ -56,7 +56,7 @@ class ThrusterController : public rclcpp::Node {
 public:
     ThrusterController() : Node("thruster_controller") {
         cmd_sub_ = this->create_subscription<cabin_interface::msg::ControlMove>(
-            "command/move", 10,
+            "command/pid/move", 10,
             std::bind(&ThrusterController::callback, this, std::placeholders::_1));
 
         thrust_pub_ = this->create_publisher<cabin_interface::msg::Thruster>("thruster", 10);
@@ -89,8 +89,8 @@ private:
         out.left_up     = u[4];
         out.right_up    = u[5];
 
-        RCLCPP_INFO(get_logger(), "U: %.1f %.1f %.1f %.1f %.1f %.1f",
-                    u[0],u[1],u[2],u[3],u[4],u[5]);
+        // RCLCPP_INFO(get_logger(), "U: %.1f %.1f %.1f %.1f %.1f %.1f",
+        //             u[0],u[1],u[2],u[3],u[4],u[5]);
 
         thrust_pub_->publish(out);
     }

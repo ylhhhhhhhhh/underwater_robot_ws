@@ -6,11 +6,17 @@ def generate_launch_description():
         Node(
             package="cabin_controller",
             namespace = "red",
+            executable= "yaw_pid.py",
+            name= "yaw_pid_node",
+            output= "screen",
+        ),
+        Node(
+            package="cabin_controller",
+            namespace = "red",
             executable= "thruster_controller",
             name= "thruster_controller",
             output= "screen",  
         ),
-        
         Node(
             package="cabin_controller",
             namespace = "red",
