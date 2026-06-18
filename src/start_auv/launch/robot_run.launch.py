@@ -7,10 +7,10 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     imu_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('fdilink_ahrs'), 'launch'), 'ahrs_driver.launch.py'])
+        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('fdilink_ahrs'), 'launch'), '/ahrs_driver.launch.py'])
     )
     thruster_controller_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('cabin_controller'), 'launch'), 'controller.launch.py'])
+        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('cabin_controller'), 'launch'), '/controller.launch.py'])
     )
     yolo = Node(
         package='yolov5_ros2_rknn',

@@ -62,11 +62,9 @@ class Yaw_pid(Node):
         if msg.pid_enable is True:
             self.pid_param_init()
             self.pid_enable = True
-            self.get_logger().info("Yaw PID 开启")
         else:
             self.pid_enable = False
             self.yaw_pid.reset()
-            self.get_logger().info("Yaw PID 关闭")
 
     def yaw_callback(self, msg):
         raw_yaw = msg.z
@@ -75,7 +73,7 @@ class Yaw_pid(Node):
     def move_callback(self, msg):
         self.cached_move = msg
         if self.pid_enable:
-            delta_yaw = float(msg.moment.z) * 0.2
+            delta_yaw = float(msg.moment.z) * 0.06
             self.target_yaw = (self.target_yaw + delta_yaw) % 360.0
             self.yaw_pid.set_target(self.target_yaw)
 
@@ -83,8 +81,10 @@ class Yaw_pid(Node):
         out_msg = self.cached_move
         if self.pid_enable:
             yaw_torque = self.yaw_pid.compute(self.yaw)
-            out_msg.moment.z = yaw_torque
+            out_msg.moment.z = -yaw_torque
         self.move_pub.publish(out_msg)
+        # self.get_logger().info(f"target:{self.target_yaw},output:{out_msg.moment.z}")
+
 
 
 def main(args=None):

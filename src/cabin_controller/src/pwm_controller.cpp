@@ -7,7 +7,7 @@
 #define PWM_MAX         1800    // 正转最大值
 #define PWM_MIN         1200    // 反转最大值
 
-#define PWM_DEADZONE    50      // PWM 死区宽度 ±50
+#define PWM_DEADZONE    25      // PWM 死区宽度 ±50
 
 // 推力范围
 #define THRUST_MAX      17.0f

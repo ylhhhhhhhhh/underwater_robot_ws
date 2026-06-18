@@ -119,6 +119,9 @@ void JoyController::timer_callback(){
     //current timestamp
     rclcpp::Time now = this->now();
     move.header.stamp = now;
+    if(joy_moment[2]>-2 && joy_moment[2]<2){
+        joy_moment[2] = 0;
+    }
     //Move forward
     move.force.x = joy_force[0];
     move.force.y = joy_force[1];
