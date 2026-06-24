@@ -47,6 +47,17 @@ void MainWindow::setupUI()
     btnYolo->setStyleSheet("color: white; background-color: #4c49d5;");
     sideBarLayout->addWidget(btnNormal);
     sideBarLayout->addWidget(btnYolo);
+    //保存按钮
+    btnSave = new QPushButton("保存");
+    btnSave->setStyleSheet("color: white; background-color: #0077cc; font-weight: bold;");
+    btnSave->setFixedHeight(36);
+    sideBarLayout->addWidget(btnSave);
+    //读取按钮
+    btnLoad = new QPushButton("读取");
+    btnLoad->setStyleSheet("color: white; background-color: #008855; font-weight: bold;");
+    btnLoad->setFixedHeight(36);
+    sideBarLayout->addWidget(btnLoad);
+    sideBarLayout->addStretch();
     sideBarLayout->addStretch();
     //右侧页面容器
     stackedWidget = new QStackedWidget();
@@ -55,34 +66,40 @@ void MainWindow::setupUI()
     QHBoxLayout *pageLayout = new QHBoxLayout(page);
     pageLayout->setContentsMargins(20, 20, 20, 20);
     pageLayout->setSpacing(10);
-    // 左列（视频）——固定尺寸，顶部对齐
+    //左列（视频）——固定尺寸，顶部对齐
     QVBoxLayout *leftLayout = new QVBoxLayout();
     leftLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    videoLabel = new QLabel();
+    videoLabel=new QLabel();
     videoLabel->setAlignment(Qt::AlignCenter);
     videoLabel->setStyleSheet("background-color: black;");
     videoLabel->setFixedSize(800, 600);     // 放大视频尺寸（4:3）
     leftLayout->addWidget(videoLabel);
-    // 左侧列底部留空，不添加额外拉伸
+    //左侧列底部留空，不添加额外拉伸
     pageLayout->addLayout(leftLayout, 1);
-    // 右列（声呐 + 按钮组）
-    QVBoxLayout *rightColumnLayout = new QVBoxLayout();
+    //右列（声呐+地图+按钮组）
+    rightColumnLayout = new QVBoxLayout();
     rightColumnLayout->setAlignment(Qt::AlignTop);   // 整体靠上，但弹簧会将按钮推到底部
     rightColumnLayout->setSpacing(10);
-    // 声呐在上方，固定正方形
+    //声呐在上方，固定正方形
     sonarWidget = new SonarWidget(this);
     sonarWidget->setFixedSize(400, 400);
     sonarWidget->setRange(0.0f, 10.0f);
     sonarWidget->setPixelsPerMeter(25.0f);
     sonarWidget->setColorTable(generateJetColorTable());
     rightColumnLayout->addWidget(sonarWidget, 0, Qt::AlignTop);
-    // 添加弹性空间，将后续按钮组推到底部
+    //地图
+    mapWidget = new MapWidget(this);
+    mapWidget->setMinimumHeight(220);
+    mapWidget->setMaximumHeight(300);
+    mapWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    rightColumnLayout->addWidget(mapWidget, 0, Qt::AlignTop);
+    //添加弹性空间，将后续按钮组推到底部
     rightColumnLayout->addStretch();   // 关键：弹簧将按钮组压到底部
-    // 按钮组（WASD/IJKL）放在声呐下方，右下对齐
+    //按钮组（WASD/IJKL）放在声呐下方，右下对齐
     QWidget *buttonGroupWidget1 = new QWidget();
     QHBoxLayout *buttonGroupLayout1 = new QHBoxLayout(buttonGroupWidget1);
     buttonGroupLayout1->setAlignment(Qt::AlignRight | Qt::AlignBottom);
-    // WASD 区域
+    //WASD 区域
     QWidget *wasdWidget1 = new QWidget();
     QGridLayout *wasdLayout1 = new QGridLayout(wasdWidget1);
     btnW = new QPushButton("W");
@@ -199,6 +216,11 @@ void MainWindow::setupUI()
     connect(btnPIDcontrol,   &QPushButton::clicked,this,&MainWindow::onPIDcontrol);
     connect(btnNormal,       &QPushButton::clicked,this,&MainWindow::onNormal);
     connect(btnYolo,         &QPushButton::clicked,this,&MainWindow::onYolo);
+    connect(sonarWidget     ,&SonarWidget::popOutRequested,this,&MainWindow::onSonarPopOut);
+    connect(btnSave,         &QPushButton::clicked, this, &MainWindow::onSaveCurrent);
+    connect(btnLoad,         &QPushButton::clicked, this, &MainWindow::onLoadSaved);
+    connect(sonarWidget,     &SonarWidget::popOutRequested, this, &MainWindow::onSonarPopOut);
+    connect(mapWidget,       &MapWidget::savedPointClicked, this, &MainWindow::onSavedPointClicked);
 }
 void MainWindow::initROS()
 {
@@ -211,6 +233,10 @@ void MainWindow::initROS()
     cmd_publisher =guinode->create_publisher<cabin_interface::msg::ControlCmd>("/red/command/cmd",10);
     joy_sub=guinode->create_subscription<sensor_msgs::msg::Joy>(
       "joy",10,std::bind(&MainWindow::joyCallback,this,std::placeholders::_1)
+    );
+    ugps_sub_=guinode->create_subscription<geometry_msgs::msg::PointStamped>(
+        "/ugps_position",10,
+        std::bind(&MainWindow::ugpsCallback,this,std::placeholders::_1)
     );
     rosSpinTimer = new QTimer(this);
     connect(rosSpinTimer, &QTimer::timeout, this, [this]() {
@@ -239,14 +265,12 @@ void MainWindow::initROS()
         sonarWidget->updateSonarData(msg->angle, msg->number_of_samples,
                                      0.0f, rangeMax, intensities);
     });
-    connect(rosSpinTimer, &QTimer::timeout, this, [this]() {
-        if (rclcpp::ok()) {
-            rclcpp::spin_some(guinode);
-        }
-        if (rclcpp::ok()) {
-            controlTimerCallback();
-        }
-    });
+    //初始化保存目录并加载已有数据
+    m_currentRobotX = 0.0;
+    m_currentRobotY = 0.0;
+    m_currentRobotZ = 0.0;
+    ensureSaveDir();
+    loadSavedDataFromDisk();
 }
 
 void MainWindow::updateControl()
@@ -699,24 +723,6 @@ void MainWindow::onYolo()
     switchPort(6002);
 }
 
-void MainWindow::displayImage(const QImage &image)
-{
-    QPixmap pixmap=QPixmap::fromImage(image);
-    QSize labelSize=videoLabel->size();
-    if (labelSize.width()>0&&labelSize.height()>0)
-    {
-        QPixmap scaled=pixmap.scaled(labelSize, Qt::KeepAspectRatio,Qt::SmoothTransformation);
-        videoLabel->setPixmap(scaled);
-    } 
-    else
-    {
-        videoLabel->setPixmap(pixmap);
-    }
-}
-
-
-
-
 SonarWidget::SonarWidget(QWidget *parent)
     :QWidget(parent)
 {
@@ -917,4 +923,496 @@ QVector<QColor> generateJetColorTable()
         table[i] = QColor(r, g, b);
     }
     return table;
+}
+void SonarWidget::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    Q_UNUSED(event);
+    emit popOutRequested();
+}
+
+void MainWindow::onSonarPopOut()
+{
+    if(sonarPopupWindow)
+        return;
+    int index=rightColumnLayout->indexOf(sonarWidget);
+    if(index<0)
+        return;
+    sonarOriginalIndex = index;
+    rightColumnLayout->removeWidget(sonarWidget);
+    sonarPopupWindow = new QWidget(nullptr, Qt::Window);
+    sonarPopupWindow->setWindowTitle("声呐图像");
+    sonarPopupWindow->setAttribute(Qt::WA_DeleteOnClose);
+    sonarPopupWindow->resize(750,750);
+    sonarWidget->setParent(sonarPopupWindow);
+    sonarWidget->setMinimumSize(300,300);
+    sonarWidget->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    QVBoxLayout *popupLayout = new QVBoxLayout(sonarPopupWindow);
+    popupLayout->setContentsMargins(0, 0, 0, 0);
+    popupLayout->addWidget(sonarWidget);
+    connect(sonarPopupWindow, &QWidget::destroyed, this, [this]()
+    {
+        sonarPopupWindow = nullptr;
+        sonarWidget->setParent(this);
+        sonarWidget->setFixedSize(400, 400);
+        rightColumnLayout->insertWidget(sonarOriginalIndex, sonarWidget);
+        sonarOriginalIndex = -1;
+    });
+    sonarPopupWindow->show();
+}
+
+MapWidget::MapWidget(QWidget *parent)
+    : QWidget(parent)
+{
+    setMinimumSize(200, 180);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMouseTracking(false);
+    // 默认黑底
+    setStyleSheet("background-color: #1a1a2e;");
+}
+void MapWidget::updateRobotPosition(double x,double y,double z)
+{
+    robotX=x;
+    robotY=y;
+    robotZ=z;
+    hasRobotPosition=true;
+    update();
+}
+void MapWidget::setSavedPoints(const QVector<QPair<int, QPointF>>& points)
+{
+    savedPoints.clear();
+    for(const auto& p:points)
+    {
+        savedPoints.append({p.first,p.second.x(),p.second.y()});
+    }
+    update();
+}
+void MapWidget::addOrReplaceSavedPoint(int id,double x,double y)
+{
+    //用来检查是否与现有点重叠（像素距离 < OVERLAP_PIXEL）
+    QPointF newPx = worldToPixel(x, y);
+    for(auto& sp:savedPoints)
+    {
+        QPointF existPx=worldToPixel(sp.x, sp.y);
+        double dist=std::hypot(newPx.x()-existPx.x(),newPx.y()-existPx.y());
+        if(dist<OVERLAP_PIXEL)      //覆盖处理
+        {
+            sp.id=id;
+            sp.x=x;
+            sp.y=y;
+            update();
+            return;
+        }
+    }
+    savedPoints.append({id,x,y});
+    update();
+}
+void MapWidget::removeSavedPoint(int id)
+{
+    for(int i=0;i<savedPoints.size();i++)
+    {
+        if(savedPoints[i].id==id)
+        {
+            savedPoints.removeAt(i);
+            update();
+            return;
+        }
+    }
+}
+void MapWidget::clearSavedPoints()
+{
+    savedPoints.clear();
+    update();
+}
+//坐标映射
+QPointF MapWidget::worldToPixel(double x, double y) const
+{
+    //世界范围：x∈[-worldRange/2,+worldRange/2]，y∈[0,worldRange]
+    //基站在世界(0,0)，显示在底部中央
+    int w=width();
+    int h=height();
+    double margin=baseStationMargin;
+    double usableH=h-2*margin;
+    double scale=usableH/worldRange;   // 像素/米
+    double px=w/2.0+x*scale;
+    double py=h-margin-y*scale;    // y=0 → 底部margin处
+    return QPointF(px,py);
+}
+//点击检测
+int MapWidget::hitTest(const QPointF& pixelPt) const
+{
+    for(const auto& sp:savedPoints)
+    {
+        QPointF spPx=worldToPixel(sp.x,sp.y);
+        double dist=std::hypot(pixelPt.x()-spPx.x(),pixelPt.y()-spPx.y());
+        if(dist<HIT_RADIUS)
+            return sp.id;
+    }
+    return -1;
+}
+//绘制
+void MapWidget::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    int w=width();
+    int h=height();
+    //背景
+    painter.fillRect(rect(),QColor("#1a1a2e"));
+    // 绘制半透明网格
+    painter.setPen(QPen(QColor(255,255,255,30),1,Qt::DotLine));
+    double step=worldRange/5.0;  // 条网格线
+    for(int i=0;i<=5;i++)
+    {
+        double wy=i*step;
+        QPointF p1=worldToPixel(-worldRange/2.0,wy);
+        QPointF p2=worldToPixel(+worldRange/2.0,wy);
+        painter.drawLine(p1,p2);
+    }
+    for(int i=0;i<=5;i++)
+    {
+        double wx=-worldRange/2.0+i*step;
+        QPointF p1=worldToPixel(wx,0);
+        QPointF p2=worldToPixel(wx,worldRange);
+        painter.drawLine(p1, p2);
+    }
+    //基站十字（底部中央）    
+    QPointF base=worldToPixel(0,0);  // 基站位于世界(0,0)
+    int crossLen=14;
+    painter.setPen(QPen(QColor("#00ff88"),3));
+    painter.drawLine(QPointF(base.x()-crossLen,base.y()),
+                        QPointF(base.x()+crossLen,base.y()));
+    painter.drawLine(QPointF(base.x(),base.y()-crossLen),
+                        QPointF(base.x(),base.y()+crossLen));
+    //标签
+    painter.setPen(QColor("#00ff88"));
+    QFont f=painter.font();
+    f.setPointSize(9);
+    painter.setFont(f);
+    QRectF textRect(base.x()-40,base.y()+crossLen+2,80,18);
+    painter.drawText(textRect, Qt::AlignHCenter|Qt::AlignTop,"基站");
+    //机器人位置（圆圈 + 左上小字）
+    if (hasRobotPosition)
+    {
+        QPointF rp=worldToPixel(robotX,robotY);
+        //限制在可视范围内
+        if (rp.x()>-50&&rp.x()<w+50&&rp.y()>-50&&rp.y()<h+50)
+        {
+            // 圆圈
+            painter.setPen(QPen(QColor("#ff4444"),3));
+            painter.setBrush(QColor(255,68,68,60));
+            painter.drawEllipse(rp,8,8);
+            //左上角小字：x,y,z
+            painter.setPen(QColor("#ffffff"));
+            QFont f2=painter.font();
+            f2.setPointSize(7);
+            painter.setFont(f2);
+            QString coordText=QString("x:%.1f y:%.1f z:%.1f")
+                                .arg(robotX,0,'f',1)
+                                .arg(robotY,0,'f',1)
+                                .arg(robotZ,0,'f',1);
+            //文字放在圆圈左上角
+            QRectF textBg(rp.x()-80,rp.y()-22,160,16);
+            painter.fillRect(textBg,QColor(0,0,0,140));
+            painter.drawText(textBg,Qt::AlignCenter,coordText);
+        }
+    }
+    //已保存位置（小圆点，可点击）
+    for (const auto& sp:savedPoints)
+    {
+        QPointF spp=worldToPixel(sp.x,sp.y);
+        painter.setPen(QPen(QColor("#ffcc00"),2));
+        painter.setBrush(QColor(255,204,0,180));
+        painter.drawEllipse(spp,5,5);
+    }
+}
+void MapWidget::mousePressEvent(QMouseEvent *event)
+{
+    if(event->button()==Qt::LeftButton)
+    {
+        int id=hitTest(event->pos());
+        if (id>=0) 
+        {
+            emit savedPointClicked(id);
+            return;
+        }
+    }
+    QWidget::mousePressEvent(event);
+}
+void MapWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    update();
+}
+//保存/加载功能wwwww T_T……………………
+void MainWindow::ensureSaveDir()
+{
+    m_saveDir=QDir::currentPath()+"/saved_locations";
+    QDir dir(m_saveDir);
+    if(!dir.exists())
+    {
+        dir.mkpath(".");
+    }
+}
+void MainWindow::loadSavedDataFromDisk()
+{
+    ensureSaveDir();
+    QString indexPath=m_saveDir+"/index.json";
+    QFile file(indexPath);
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        m_savedEntries=QJsonArray();
+        m_nextSaveId=0;
+        return;
+    }
+    QJsonDocument doc=QJsonDocument::fromJson(file.readAll());
+    file.close();
+    m_savedEntries=doc.array();
+    //找出最大ID作为下一个ID
+    m_nextSaveId=0;
+    for(int i=0;i<m_savedEntries.size();i++)
+    {
+        int id=m_savedEntries[i].toObject()["id"].toInt();
+        if(id>=m_nextSaveId)
+            m_nextSaveId=id+1;
+    }
+    //同步到地图
+    mapWidget->clearSavedPoints();
+    for(int i=0;i<m_savedEntries.size();i++)
+    {
+        QJsonObject obj=m_savedEntries[i].toObject();
+        mapWidget->addOrReplaceSavedPoint(obj["id"].toInt(),
+                                          obj["x"].toDouble(),
+                                          obj["y"].toDouble());
+    }
+}
+
+void MainWindow::saveIndexToDisk()
+{
+    ensureSaveDir();
+    QString indexPath=m_saveDir+"/index.json";
+    QFile file(indexPath);
+    if(!file.open(QIODevice::WriteOnly|QIODevice::Truncate)) 
+    {
+        qWarning()<<"无法写入 index.json";
+        return;
+    }
+    QJsonDocument doc(m_savedEntries);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+}
+
+void MainWindow::onSaveCurrent()
+{
+    //检查是否有图像
+    if(m_currentVideoImage.isNull())
+    {
+        QMessageBox::warning(this, "保存失败", "当前没有可保存的摄像头图像。");
+        return;
+    }
+    //检查是否有坐标数据
+    if(!mapWidget)
+    {
+        QMessageBox::warning(this, "保存失败", "地图未初始化。");
+        return;
+    }
+    //从mapWidget获取当前机器人位置然后存储
+    ensureSaveDir();
+    int id = m_nextSaveId++;
+    QString imagePath = m_saveDir + QString("/img_%1.jpg").arg(id);
+    // 保存图像
+    if(!m_currentVideoImage.save(imagePath, "JPEG", 90))
+    {
+        QMessageBox::warning(this,"保存失败","图像写入磁盘失败。");
+        return;
+    }
+    // 更新索引
+    QJsonObject entry;
+    entry["id"]=id;
+    entry["x"]=m_currentRobotX;
+    entry["y"]=m_currentRobotY;
+    entry["z"]=m_currentRobotZ;
+    entry["image"]=QString("img_%1.jpg").arg(id);
+    entry["timestamp"]=QDateTime::currentDateTime().toString(Qt::ISODate);
+    m_savedEntries.append(entry);
+    saveIndexToDisk();
+    //更新地图上的点
+    mapWidget->addOrReplaceSavedPoint(id,m_currentRobotX, m_currentRobotY);
+    qDebug()<< "已保存: id=" << id<< "x=" << m_currentRobotX<< "y=" << m_currentRobotY<< "z=" << m_currentRobotZ;
+}
+void MainWindow::onLoadSaved()
+{
+    // 重新从磁盘加载
+    loadSavedDataFromDisk();
+    if(m_savedEntries.isEmpty())
+    {
+        QMessageBox::information(this,"已保存记录","暂无已保存的记录。");
+        return;
+    }
+    //创建列表对话框
+    QDialog *dlg = new QDialog(this);
+    dlg->setWindowTitle("已保存记录");
+    dlg->resize(500, 450);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    QVBoxLayout *dlgLayout = new QVBoxLayout(dlg);
+    QListWidget *listWidget = new QListWidget(dlg);
+    listWidget->setAlternatingRowColors(true);
+    listWidget->setStyleSheet(
+        "QListWidget::item { padding: 6px; }"
+        "QListWidget::item:selected { background-color: #3399ff; color: white; }"
+    );
+    dlgLayout->addWidget(listWidget);
+    // 填充列表
+    for(int i=0;i<m_savedEntries.size();i++)
+    {
+        QJsonObject obj=m_savedEntries[i].toObject();
+        int id=obj["id"].toInt();
+        double x=obj["x"].toDouble();
+        double y=obj["y"].toDouble();
+        double z=obj["z"].toDouble();
+        QString ts=obj["timestamp"].toString();
+        QListWidgetItem *item=new QListWidgetItem();
+        item->setText(QString("ID:%1 | (%.1f, %.1f, %.1f) | %2")
+                      .arg(id).arg(x).arg(y).arg(z).arg(ts));
+        item->setData(Qt::UserRole,id);
+        listWidget->addItem(item);
+    }
+    // 底部按钮
+    QHBoxLayout *btnLayout=new QHBoxLayout();
+    QPushButton *btnView=new QPushButton("查看");
+    QPushButton *btnDelete=new QPushButton("删除");
+    QPushButton *btnClose=new QPushButton("关闭");
+    btnView->setStyleSheet("background-color: #3399ff; color: white;");
+    btnDelete->setStyleSheet("background-color: #cc3333; color: white;");
+    btnClose->setStyleSheet("background-color: #666666; color: white;");
+    btnLayout->addWidget(btnView);
+    btnLayout->addWidget(btnDelete);
+    btnLayout->addStretch();
+    btnLayout->addWidget(btnClose);
+    dlgLayout->addLayout(btnLayout);
+    // 信号
+    connect(btnView, &QPushButton::clicked,dlg,[listWidget,this]()
+    {
+        QListWidgetItem *item=listWidget->currentItem();
+        if(item)
+        {
+            int id=item->data(Qt::UserRole).toInt();
+            showImagePreview(id);
+        }
+    });
+    connect(btnDelete,&QPushButton::clicked,dlg,[listWidget,this,dlg]()
+    {
+        QListWidgetItem *item=listWidget->currentItem();
+        if(!item)
+            return;
+        int id=item->data(Qt::UserRole).toInt();
+        int ret=QMessageBox::question(dlg,"确认删除",
+                    QString("确定要删除记录 ID:%1 吗？").arg(id),
+                    QMessageBox::Yes|QMessageBox::No);
+        if (ret==QMessageBox::Yes)
+        {
+            deleteSavedEntry(id);
+            delete listWidget->takeItem(listWidget->row(item));
+        }
+    });
+    connect(btnClose,&QPushButton::clicked,dlg,&QDialog::accept);
+    //双击也可查看
+    connect(listWidget, &QListWidget::itemDoubleClicked,dlg,[this](QListWidgetItem *item)
+    {
+        if(item) 
+        {
+            int id=item->data(Qt::UserRole).toInt();
+            showImagePreview(id);
+        }
+    });
+    dlg->exec();
+}
+//查找条目
+void MainWindow::showImagePreview(int id)
+{
+    QString imageFile;
+    double x=0,y=0,z=0;
+    for (int i=0;i<m_savedEntries.size();i++)
+    {
+        QJsonObject obj=m_savedEntries[i].toObject();
+        if (obj["id"].toInt()==id)
+        {
+            imageFile=obj["image"].toString();
+            x=obj["x"].toDouble();
+            y=obj["y"].toDouble();
+            z=obj["z"].toDouble();
+            break;
+        }
+    }
+    if(imageFile.isEmpty())
+        return;
+    QString fullPath=m_saveDir+"/"+imageFile;
+    QImage img(fullPath);
+    if(img.isNull())
+    {
+        QMessageBox::warning(this, "错误", "无法加载图像文件。");
+        return;
+    }
+    //显示小坐标
+    QDialog *preview=new QDialog(this);
+    preview->setWindowTitle(QString("记录 ID:%1  (%.1f, %.1f, %.1f)").arg(id).arg(x).arg(y).arg(z));
+    preview->setAttribute(Qt::WA_DeleteOnClose);
+    preview->resize(qMin(img.width() + 40, 900), qMin(img.height() + 80, 700));
+    QVBoxLayout *pvLayout = new QVBoxLayout(preview);
+    QLabel *imgLabel = new QLabel(preview);
+    imgLabel->setAlignment(Qt::AlignCenter);
+    imgLabel->setPixmap(QPixmap::fromImage(img).scaled(
+        preview->width() - 40, preview->height() - 60,
+        Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    pvLayout->addWidget(imgLabel);
+    QLabel *infoLabel = new QLabel(
+        QString("坐标: x=%.1f  y=%.1f  z=%.1f").arg(x).arg(y).arg(z), preview);
+    infoLabel->setAlignment(Qt::AlignCenter);
+    pvLayout->addWidget(infoLabel);
+    preview->exec();
+}
+//从内存索引删除图片文件
+void MainWindow::deleteSavedEntry(int id)
+{
+    for(int i=0;i<m_savedEntries.size();i++)
+    {
+        if(m_savedEntries[i].toObject()["id"].toInt()==id)
+        {    
+            QString imgFile=m_savedEntries[i].toObject()["image"].toString();
+            QFile::remove(m_saveDir+"/"+imgFile);
+            m_savedEntries.removeAt(i);
+            break;
+        }
+    }
+    saveIndexToDisk();
+    mapWidget->removeSavedPoint(id);    //从地图上移除标记点
+}
+void MainWindow::onSavedPointClicked(int id)
+{
+    showImagePreview(id);
+}
+void MainWindow::ugpsCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
+{
+    m_currentRobotX=msg->point.x;
+    m_currentRobotY=msg->point.y;
+    m_currentRobotZ=msg->point.z;
+    if (mapWidget)
+    {
+        mapWidget->updateRobotPosition(m_currentRobotX, m_currentRobotY, m_currentRobotZ);
+    }
+}
+void MainWindow::displayImage(const QImage &image)
+{
+    m_currentVideoImage = image;   //存储最新帧用于保存
+    QPixmap pixmap=QPixmap::fromImage(image);
+    QSize labelSize=videoLabel->size();
+    if(labelSize.width()>0 && labelSize.height()>0)
+    {
+        QPixmap scaled=pixmap.scaled(labelSize,Qt::KeepAspectRatio,Qt::SmoothTransformation);
+        videoLabel->setPixmap(scaled);
+    }
+    else
+    {
+        videoLabel->setPixmap(pixmap);
+    }
 }
