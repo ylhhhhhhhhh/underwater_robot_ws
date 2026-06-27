@@ -12,6 +12,9 @@ def generate_launch_description():
     thruster_controller_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('cabin_controller'), 'launch'), '/controller.launch.py'])
     )
+    sonar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('ping360_sonar'), 'launch'), '/ping360_bringup.launch.py'])
+    )
     yolo = Node(
         package='yolov5_ros2_rknn',
         executable='yolov5_rknn_node',
@@ -21,4 +24,5 @@ def generate_launch_description():
         imu_launch,
         thruster_controller_launch,
         yolo,
+        sonar_launch,
     ])

@@ -35,14 +35,14 @@ class Yaw_pid(Node):
         )
 
         self.yaw_pid = pid.PIDController(
-            kp=0.5,
-            ki=0.2,
-            kd=0.3,
+            kp=0.3,
+            ki=0.01,
+            kd=0.0,
             max_out=33.0,
             min_out=-33.0,
             max_i=10.0,
             min_i=-10.0,
-            error_tolerance=3.0
+            error_tolerance=1.0
         )
         self.move_pub = self.create_publisher(ControlMove, 'command/pid/move', 10)
         self.cached_move = ControlMove()
@@ -81,9 +81,9 @@ class Yaw_pid(Node):
         out_msg = self.cached_move
         if self.pid_enable:
             yaw_torque = self.yaw_pid.compute(self.yaw)
-            out_msg.moment.z = -yaw_torque
+            out_msg.moment.z = yaw_torque
         self.move_pub.publish(out_msg)
-        # self.get_logger().info(f"target:{self.target_yaw},output:{out_msg.moment.z}")
+        #self.get_logger().info(f"target:{self.target_yaw},output:{out_msg.moment.z},now{self.yaw}")
 
 
 

@@ -2,13 +2,13 @@
 import rclpy
 from rclpy.node import Node
 import serial
-from cabin_interface.msg import Pwm,ControlCmd
+from cabin_interface.msg import Pwm
 import time
 
 # 自定义通信协议配置
 FRAME_HEADER = b'\xAA\x55'  # 帧头
 CMD_TYPE_PWM = 0x01         # PWM指令类型
-FRAME_LEN_PWM = 17          # 6路PWM帧总长度：17
+FRAME_LEN_PWM = 17          # 6路PWM帧总长度：2+1+1+12+1=18
 PWM_MIN = 1100              # PWM最小值（us）
 PWM_MAX = 1900              # PWM最大值（us）
 PWM_CHANNELS = 6            # 固定6路PWM
@@ -28,7 +28,7 @@ class SerialPWMNode(Node):
         port = self.get_parameter('serial_port').value
         baud = self.get_parameter('baudrate').value
         timeout = self.get_parameter('timeout').value
-        self.lock = True
+        
         # 2. 初始化串口
         try:
             self.ser = serial.Serial(
@@ -50,7 +50,6 @@ class SerialPWMNode(Node):
             self.pwm_callback,
             10  
         )
-        self.sub_cmd = self.create_subscription(ControlCmd,'command/cmd',self.cmd_callback,10)
         self.latest_frame = None
         self.send_timer = self.create_timer(0.1, self.timer_send_callback)
         
@@ -68,11 +67,6 @@ class SerialPWMNode(Node):
         """计算累加和校验位（低8位）"""
         checksum = sum(data) & 0xFF
         return checksum
-    def cmd_callback(self, msg):
-        if msg.lock != 0:
-            self.lock = False
-        else:
-            self.lock = True
 
     def pwm_callback(self, msg):
         """PwmStamped话题回调：解析6路PWM并发送串口帧"""
@@ -91,7 +85,7 @@ class SerialPWMNode(Node):
                 right_front,
                 left_back,
                 right_back,
-                3000 - left_up,
+                left_up,
                 right_up
             ]
         except AttributeError as e:
@@ -118,7 +112,7 @@ class SerialPWMNode(Node):
 
     def timer_send_callback(self):
         """定时器回调：0.1秒触发，只发送最新缓存的帧"""
-        if self.latest_frame is not None and self.lock == False:
+        if self.latest_frame is not None:
             try:
                 self.ser.write(self.latest_frame)
                 self.get_logger().debug(f"发送串口帧(16进制)：{self.latest_frame.hex()}")
