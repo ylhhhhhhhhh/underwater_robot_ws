@@ -639,23 +639,26 @@ void MainWindow::onNewConnection()
 
 void MainWindow::switchPort(int newPort)
 {
-    if(currentPort==newPort)
+    if (currentPort == newPort)
         return;
-    currentPort=newPort;
+    currentPort = newPort;
+    if (tcpSocket)
+    {
+        tcpSocket->abort();          // 立即中止所有未完成操作
+        tcpSocket->deleteLater();    // 延迟删除
+        tcpSocket = nullptr;         // 置空指针
+    }
+    //关闭旧服务器
     if(tcpServer->isListening())
     {
         tcpServer->close();
     }
-    if(!tcpServer->listen(QHostAddress::Any,newPort))
+    if(!tcpServer->listen(QHostAddress::Any, newPort))
     {
-        qDebug()<<"Failed to switch to port"<<newPort;
+        qDebug()<< "Failed to switch to port"<<newPort;
         return;
     }
-    if(clientSocket)
-    {
-        clientSocket->disconnectFromHost();
-        clientSocket=nullptr;
-    }
+    //重置接收状态
     recvbuffer.clear();
     isReceiving=false;
     expectbyte=0;
@@ -1147,7 +1150,7 @@ void MapWidget::resizeEvent(QResizeEvent *event)
 //保存/加载功能wwwww T_T……………………
 void MainWindow::ensureSaveDir()
 {
-    m_saveDir=QDir::currentPath()+"/saved_locations";
+    m_saveDir="/home/ylh/underwater_robot_ws/saved_locations";
     QDir dir(m_saveDir);
     if(!dir.exists())
     {
